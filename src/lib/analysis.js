@@ -20,7 +20,7 @@ const STORAGE_BRANCHES = {
 const FAMILY_WEIGHT = {
   制用: 3,
   化用: 2,
-  合用: 3,
+  合用: 5,  // 藍圖 Step 2：日干有合 → 合用優先於制用
   墓用: 1,
   生用: 2,
 };
@@ -50,7 +50,7 @@ function buildStructure({
     a,
     b,
     members,
-    actors,
+    actors: [...new Set(actors)],
     evidence,
     tags,
     phase,
@@ -116,7 +116,7 @@ export function detectControlStructures(pillars, riZhu, _qishi, interactions) {
   for (let index = 0; index < targets.length; index += 1) {
     for (let compareIndex = 0; compareIndex < targets.length; compareIndex += 1) {
       if (index === compareIndex) continue;
-      if (!targets[index].isGan && !targets[compareIndex].isGan) continue;
+      if (!targets[index].isGan) continue;  // 主動方（actor）必須是天干，防止藏干重複造結構
 
       const left = targets[index];
       const right = targets[compareIndex];
@@ -249,7 +249,7 @@ export function detectTransformStructures(pillars, riZhu) {
 
 export function detectCombineStructures(pillars, riZhu, interactions) {
   return interactions
-    .filter(interaction => interaction.type === '憭拙僕鈭?' && interaction.isDayZhu)
+    .filter(interaction => interaction.type === '天干五合' && interaction.isDayZhu)
     .map(interaction => {
       const other = interaction.a.char === riZhu ? interaction.b : interaction.a;
       const shishen = getShiShen(riZhu, other.char);
@@ -265,7 +265,7 @@ export function detectCombineStructures(pillars, riZhu, interactions) {
         riZhu,
         a: { pos: interaction.a.pos, char: interaction.a.char, shishen: getShiShen(riZhu, interaction.a.char) },
         b: { pos: interaction.b.pos, char: interaction.b.char, shishen: getShiShen(riZhu, interaction.b.char) },
-        actors: [interaction.a.char, interaction.b.char],
+        actors: [other.char],
         evidence: [
           `${interaction.a.pos}${interaction.a.char}與${interaction.b.pos}${interaction.b.char}成五合`,
           `${other.char}對日主屬${shishen}`,
@@ -278,7 +278,7 @@ export function detectCombineStructures(pillars, riZhu, interactions) {
 export function detectStorageStructures(pillars, riZhu, interactions) {
   const chongBranches = new Set(
     interactions
-      .filter(interaction => interaction.type === '?剜?')
+      .filter(interaction => interaction.type === '六沖')
       .flatMap(interaction => [interaction.a?.char, interaction.b?.char])
       .filter(Boolean)
   );

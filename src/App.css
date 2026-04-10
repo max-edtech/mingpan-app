@@ -389,6 +389,8 @@ html, body, #root {
   position: relative;
   overflow: hidden;
   min-height: 160px;
+  will-change: transform;   /* 提升為合成層，滑動時不觸發主執行緒重繪 */
+  contain: layout style;    /* 隔離場景卡 layout/style 計算，避免影響頁面其他元素 */
 }
 
 /* 場景 SVG 層（z:0，覆蓋整張卡的背景） */
@@ -806,10 +808,6 @@ html, body, #root {
   text-shadow: 0 1px 16px rgba(0,0,0,0.38);
 }
 
-.daix-gaitou {
-  filter: saturate(0.88);
-}
-
 .daix-gaitou::after {
   content: '';
   position: absolute;
@@ -822,7 +820,7 @@ html, body, #root {
 .daix-gaitou .scene-svg-layer,
 .daix-gaitou .scene-branch-aura,
 .daix-gaitou .scene-silhouette {
-  filter: brightness(0.78);
+  filter: saturate(0.88) brightness(0.78);  /* 蓋頭：合併飽和+亮度，只作用於子層 */
 }
 
 @keyframes jiejiao-shake {

@@ -2,7 +2,7 @@ import { WUXING_COLOR } from '../constants/bazi.js';
 import { EFFICIENCY } from '../lib/analysis.js';
 
 const W = 360;
-const H = 300;
+const H = 320;   // 加高 20px，容納暗合的深弧線和標籤
 const GAN_Y = 80;
 const ZHI_Y = 200;
 const POSITIONS = [60, 140, 220, 300];
@@ -31,6 +31,23 @@ const INTERACTION_LABELS = {
 function normalizeType(type) {
   return INTERACTION_LABELS[type] ?? type;
 }
+
+// 計算二次貝茲曲線上 t 點座標
+function qBezierPt(t, x0, y0, cx, cy, x1, y1) {
+  const mt = 1 - t;
+  return {
+    x: mt * mt * x0 + 2 * mt * t * cx + t * t * x1,
+    y: mt * mt * y0 + 2 * mt * t * cy + t * t * y1,
+  };
+}
+
+// 地支弧線類型深度倍率：六合最淺 → 暗合最深
+const ZHI_ARC_MULT = {
+  '地支六合': 1.0,
+  '地支穿害': 1.55,
+  '地支相破': 1.85,
+  '暗合': 2.2,
+};
 
 function buildColor(type, isMain) {
   const normalized = normalizeType(type);
@@ -88,20 +105,49 @@ export default function TopologyGraph({ pillars, interactions, ranked }) {
 
     const normalized = normalizeType(interaction.type);
     const isGanInteraction = normalized === '天干五合';
-    const nodeA = (isGanInteraction ? ganNodes : zhiNodes).find(node => node.char === interaction.a.char);
-    const nodeB = (isGanInteraction ? ganNodes : zhiNodes).find(node => node.char === interaction.b.char);
+    const isChong = normalized === '地支六沖';
 
+    const nodeLayer = isGanInteraction ? ganNodes : zhiNodes;
+    const nodeA = nodeLayer.find(node => node.char === interaction.a.char);
+    const nodeB = nodeLayer.find(node => node.char === interaction.b.char);
     if (!nodeA || !nodeB) return;
 
     const posKey = `${interaction.a.pos}-${interaction.b.pos}`;
     const isMain = mainLinePositions.has(posKey);
     const visual = buildColor(interaction.type, isMain);
     const mx = (nodeA.x + nodeB.x) / 2;
-    // 弧度隨跨度縮放：跨越愈多柱，曲線彎曲愈深，避免標籤落在中間節點位置造成誤讀
     const span = Math.abs(nodeB.x - nodeA.x);
-    const curveDepth = 28 + span * 0.14;
-    const my = isGanInteraction ? GAN_Y - curveDepth : ZHI_Y + curveDepth;
-    const path = `M ${nodeA.x} ${nodeA.y} Q ${mx} ${my} ${nodeB.x} ${nodeB.y}`;
+
+    let path, my, labelY, dotA, dotB;
+
+    if (isChong) {
+      // 六沖：直線，表示猛烈撞擊，無弧度
+      path = `M ${nodeA.x} ${nodeA.y} L ${nodeB.x} ${nodeB.y}`;
+      my = nodeA.y;
+      labelY = ZHI_Y + 18;
+      dotA = { x: nodeA.x + (nodeB.x - nodeA.x) * 0.34, y: nodeA.y };
+      dotB = { x: nodeA.x + (nodeB.x - nodeA.x) * 0.68, y: nodeA.y };
+    } else if (isGanInteraction) {
+      // 天干：向上弧線
+      const curveDepth = Math.min(24 + span * 0.12, 62);
+      my = GAN_Y - curveDepth;
+      path = `M ${nodeA.x} ${nodeA.y} Q ${mx} ${my} ${nodeB.x} ${nodeB.y}`;
+      // 曲線視覺中點 y（t=0.5）：GAN_Y - curveDepth/2
+      labelY = GAN_Y - curveDepth / 2 - 10;
+      dotA = qBezierPt(0.34, nodeA.x, nodeA.y, mx, my, nodeB.x, nodeB.y);
+      dotB = qBezierPt(0.68, nodeA.x, nodeA.y, mx, my, nodeB.x, nodeB.y);
+    } else {
+      // 地支：向下弧線，依類型分配不同深度
+      const baseCurveDepth = 18 + span * 0.08;
+      const mult = ZHI_ARC_MULT[normalized] ?? 1.0;
+      const curveDepth = Math.min(baseCurveDepth * mult, 76);
+      my = ZHI_Y + curveDepth;
+      path = `M ${nodeA.x} ${nodeA.y} Q ${mx} ${my} ${nodeB.x} ${nodeB.y}`;
+      // 曲線視覺中點 y（t=0.5，同 y 節點）：ZHI_Y + curveDepth/2
+      labelY = ZHI_Y + curveDepth / 2 + 9;
+      dotA = qBezierPt(0.34, nodeA.x, nodeA.y, mx, my, nodeB.x, nodeB.y);
+      dotB = qBezierPt(0.68, nodeA.x, nodeA.y, mx, my, nodeB.x, nodeB.y);
+    }
 
     lines.push({
       key: `line_${index}`,
@@ -112,6 +158,9 @@ export default function TopologyGraph({ pillars, interactions, ranked }) {
       path,
       label: normalized,
       isMain,
+      labelY,
+      dotA,
+      dotB,
       ...visual,
     });
   });
@@ -175,71 +224,58 @@ export default function TopologyGraph({ pillars, interactions, ranked }) {
             />
           ))}
 
-          {lines.map(line => {
-            const isGan = line.nodeA.y < 150;
-            const labelY = isGan ? line.my + 10 : line.my - 6;
-            const dotA = {
-              x: line.nodeA.x + (line.nodeB.x - line.nodeA.x) * 0.34,
-              y: line.nodeA.y + (line.nodeB.y - line.nodeA.y) * 0.34,
-            };
-            const dotB = {
-              x: line.nodeA.x + (line.nodeB.x - line.nodeA.x) * 0.68,
-              y: line.nodeA.y + (line.nodeB.y - line.nodeA.y) * 0.68,
-            };
-
-            return (
-              <g key={line.key}>
-                {line.isMain && (
-                  <path d={line.path} fill="none" stroke={line.glow} strokeWidth="7" opacity="0.14" />
-                )}
+          {lines.map(line => (
+            <g key={line.key}>
+              {line.isMain && (
+                <path d={line.path} fill="none" stroke={line.glow} strokeWidth="7" opacity="0.14" />
+              )}
+              <path
+                d={line.path}
+                fill="none"
+                stroke={line.stroke}
+                strokeWidth={line.isMain ? 2.6 : 1.5}
+                strokeDasharray={line.dash}
+                opacity={line.isMain ? 1 : 0.68}
+                className={line.isMain ? 'topology-main-link' : 'topology-link'}
+              />
+              {line.isMain && (
                 <path
                   d={line.path}
                   fill="none"
-                  stroke={line.stroke}
-                  strokeWidth={line.isMain ? 2.6 : 1.5}
-                  strokeDasharray={line.dash}
-                  opacity={line.isMain ? 1 : 0.68}
-                  className={line.isMain ? 'topology-main-link' : 'topology-link'}
+                  stroke="url(#topologyBeam)"
+                  strokeWidth="3"
+                  className="topology-main-beam"
                 />
-                {line.isMain && (
-                  <path
-                    d={line.path}
-                    fill="none"
-                    stroke="url(#topologyBeam)"
-                    strokeWidth="3"
-                    className="topology-main-beam"
-                  />
-                )}
-                <text
-                  x={line.mx}
-                  y={labelY}
-                  textAnchor="middle"
-                  fill={line.stroke}
-                  fontSize="8"
-                  opacity="0.88"
-                  style={{ pointerEvents: 'none' }}
-                >
-                  {line.label}
-                </text>
-                <circle
-                  cx={dotA.x}
-                  cy={dotA.y}
-                  r={line.isMain ? 3.5 : 2.4}
-                  fill={line.stroke}
-                  filter="url(#glow)"
-                  className={line.isMain ? 'topology-hotspot topology-hotspot-main' : 'topology-hotspot'}
-                />
-                <circle
-                  cx={dotB.x}
-                  cy={dotB.y}
-                  r={line.isMain ? 2.8 : 2}
-                  fill={line.stroke}
-                  filter="url(#glow)"
-                  className="topology-hotspot topology-hotspot-late"
-                />
-              </g>
-            );
-          })}
+              )}
+              <text
+                x={line.mx}
+                y={line.labelY}
+                textAnchor="middle"
+                fill={line.stroke}
+                fontSize="8"
+                opacity="0.88"
+                style={{ pointerEvents: 'none' }}
+              >
+                {line.label}
+              </text>
+              <circle
+                cx={line.dotA.x}
+                cy={line.dotA.y}
+                r={line.isMain ? 3.5 : 2.4}
+                fill={line.stroke}
+                filter="url(#glow)"
+                className={line.isMain ? 'topology-hotspot topology-hotspot-main' : 'topology-hotspot'}
+              />
+              <circle
+                cx={line.dotB.x}
+                cy={line.dotB.y}
+                r={line.isMain ? 2.8 : 2}
+                fill={line.stroke}
+                filter="url(#glow)"
+                className="topology-hotspot topology-hotspot-late"
+              />
+            </g>
+          ))}
 
           {ganNodes.map(node => (
             <g key={node.id} className={node.isActive ? 'topology-node-active' : ''}>

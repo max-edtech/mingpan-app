@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import {
   WUXING_COLOR,
   ZHI_EMOJI,
@@ -427,6 +427,13 @@ export default function DayunTimeline({
   isForward,
 }) {
   const [viewStartYear, setViewStartYear] = useState(null);
+  // localYear 供滑桿即時顯示用，不觸發全域重算
+  const [localYear, setLocalYear] = useState(currentYear);
+
+  // 當外部 currentYear 更新（點擊大運步驟等），同步 localYear
+  useEffect(() => {
+    setLocalYear(currentYear);
+  }, [currentYear]);
 
   const activeDayun = useMemo(() => {
     if (!yingqi?.length) return null;
@@ -461,11 +468,17 @@ export default function DayunTimeline({
   const currentOffset = currentDayun ? Math.max(0, Math.min(9, currentYear - currentDayun.startYear)) : 0;
   const modeMeta = getModeMeta(activeMode);
 
-  const handleYearSliderChange = year => {
-    onYearChange(year);
+  // onChange：只更新本地顯示，不觸發全域重算
+  const handleYearSliderChange = useCallback(year => {
+    setLocalYear(year);
     const matchingDayun = yingqi.find(dayun => year >= dayun.startYear && year < dayun.endYear);
     setViewStartYear(matchingDayun?.startYear ?? null);
-  };
+  }, [yingqi]);
+
+  // onMouseUp/onTouchEnd：釋放時才觸發全域重算（一次）
+  const handleYearSliderCommit = useCallback(() => {
+    onYearChange(localYear);
+  }, [onYearChange, localYear]);
 
   const handleSelectDayun = dayun => {
     const offsetWithinTarget =
@@ -557,15 +570,17 @@ export default function DayunTimeline({
             className="year-slider"
             min={birthYear}
             max={birthYear + 100}
-            value={currentYear}
+            value={localYear}
             onChange={event => handleYearSliderChange(parseInt(event.target.value, 10))}
+            onMouseUp={handleYearSliderCommit}
+            onTouchEnd={handleYearSliderCommit}
           />
           <span>{birthYear + 100}</span>
         </div>
 
         <div className="year-display">
-          <span className="year-big">{currentYear} 年</span>
-          <span className="age-badge">實歲 {currentAge} · 虛歲 {Math.max(currentAge + 1, 1)}</span>
+          <span className="year-big">{localYear} 年</span>
+          <span className="age-badge">實歲 {localYear - birthYear} · 虛歲 {Math.max(localYear - birthYear + 1, 1)}</span>
         </div>
 
         <div className="liunian-row">

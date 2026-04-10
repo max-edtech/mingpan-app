@@ -274,9 +274,9 @@ export function genDaiXiang(pillars) {
 export function judgeCatcher(qishi, pillars) {
   const { host, riZhuIsHost, riZhuWx, count } = qishi;
 
-  // 日主居賓位且字數≤1/8 → 體弱從勢（不構成賊捕對抗）
+  // 日主居賓位且字數≤1/8 → 日主極弱，傾向從勢，但尚未達從格門檻，標為邊界案例
   if (!riZhuIsHost && (count?.[riZhuWx] ?? 0) <= 1) {
-    return { verdict: '體弱從勢', ratio: 0, desc: `${riZhuWx}僅1字無根，隨勢從化` };
+    return { verdict: '日主極弱，傾向從勢（待驗證）', ratio: 0, desc: `${riZhuWx}僅1字，傾向隨勢，惟未達從格門檻，建議命理師確認` };
   }
 
   const hostWxs = host.split('+');

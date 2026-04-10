@@ -85,9 +85,9 @@ export function judgeCatcherDynamic(qishi, pillars) {
 
   if (!riZhuIsHost && (count?.[riZhuWx] ?? 0) <= 1) {
     return {
-      verdict: '體弱從勢',
+      verdict: '日主極弱，傾向從勢（待驗證）',
       ratio: 0,
-      desc: `${riZhuWx} 僅一字，難與主勢對抗`,
+      desc: `${riZhuWx}僅1字，傾向隨勢，惟未達從格門檻，建議命理師確認`,
     };
   }
 

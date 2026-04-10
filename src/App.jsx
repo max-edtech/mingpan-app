@@ -24,14 +24,12 @@ import BirthForm from './components/BirthForm.jsx';
 import PillarCards from './components/PillarCards.jsx';
 import TopologyGraph from './components/TopologyGraph.jsx';
 import DayunTimeline from './components/DayunTimeline.jsx';
-import CaseValidation from './components/CaseValidation.jsx';
 import './App.css';
 
 const TABS = [
   { id: 'pillars', label: '命盤取象' },
   { id: 'topology', label: '做功拓撲' },
   { id: 'timeline', label: '大運時間軸' },
-  { id: 'cases', label: '案例驗收' },
 ];
 
 const DEFAULT_INPUT = {
@@ -313,13 +311,6 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'cases' && (
-          <CaseValidation
-            currentInput={input}
-            currentComputed={computed}
-            onApplyCase={handleApplyCase}
-          />
-        )}
 
         {activeTab === 'script' && (
           <section className="section-card">
