@@ -1,0 +1,1 @@
+if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/mingpan-app/sw.js', { scope: '/mingpan-app/' })})}
